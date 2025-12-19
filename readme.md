@@ -45,17 +45,27 @@ The results of this phase provide the statistical foundation for the next stages
 
 ## Methodology
 
-1. The top 50 cryptocurrencies are retrieved based on market capitalization using the CoinMarketCap API.
-2. For each cryptocurrency, daily closing prices are downloaded from Yahoo Finance.
-3. Cryptocurrencies are **automatically excluded** if no valid price data is available for the selected period.
-4. The Augmented Dickey–Fuller (ADF) test is applied to each valid price series.
-5. The ADF test is **skipped** for:
-   - Series with insufficient data length
-   - Series with constant or near-constant values (e.g., stablecoins)
-6. A cryptocurrency is classified as **stationary** if:
-   - `p-value < 0.05` (corresponding to a 95% confidence level)
+1. The top cryptocurrencies are retrieved based on market capitalization using the CoinMarketCap API.  
+   To ensure that exactly **50 cryptocurrencies with valid price data** are analyzed, the top **70** cryptocurrencies are initially requested.
 
-All exclusions and decisions are handled programmatically to ensure reproducibility.
+2. For each cryptocurrency, daily closing prices are downloaded from Yahoo Finance for the period **2024-12-01 to 2025-12-01**.
+
+3. Cryptocurrencies are **automatically excluded** if:
+   - No historical price data is available on Yahoo Finance
+   - All retrieved closing prices are missing (`NaN`)
+
+   The data collection process continues until **50 cryptocurrencies with valid price series** are obtained.
+
+4. The Augmented Dickey–Fuller (ADF) test is applied to each valid price series.
+
+5. The ADF test is **skipped** for:
+   - Series with fewer than **30 observations** (insufficient data length)
+   - Series with **constant or near-constant values**, which commonly occur in stablecoins
+
+6. A cryptocurrency is classified as **stationary** if:
+   - `p-value < 0.05`, corresponding to a 95% confidence level
+
+All exclusions, validations, and statistical decisions are handled programmatically to ensure reproducibility and robustness of the analysis.
 
 ---
 
@@ -100,4 +110,4 @@ All exclusions and decisions are handled programmatically to ensure reproducibil
 
 ---
 
-✅ **Phase 1 completed: Stationary cryptocurrencies identified using the ADF test**
+**Phase 1 completed: Stationary cryptocurrencies identified using the ADF test**
