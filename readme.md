@@ -1,74 +1,162 @@
-# Cryptocurrency Time Series Analysis
-
-This project analyzes cryptocurrency price time series using statistical methods to identify stationarity, mean reversion, and cointegration relationships, with the ultimate goal of building a statistical arbitrage trading strategy.
-
----
-
 ## Phase 1: Data Collection and Stationarity Testing
 
-In this phase, the top 50 cryptocurrencies by market capitalization were collected using the CoinMarketCap API. Daily OHLC price data was downloaded from Yahoo Finance for the period **2024-12-01 to 2025-12-01**.
+In Phase 1, the top 50 cryptocurrencies by market capitalization were selected using the CoinMarketCap API. Daily OHLC price data was collected from Yahoo Finance for the period 2024-12-01 to 2025-12-01.
 
-The Augmented Dickey-Fuller (ADF) test was applied to the closing price of each cryptocurrency to determine whether the series is stationary.
+The Augmented Dickey-Fuller (ADF) test was applied to the closing price series of each cryptocurrency to determine stationarity.
 
-### Key Points
-- Stationary series were identified using **ADF test (p-value < 0.05)**.
-- A dictionary called `main_dict` was created:
-  - **Key**: cryptocurrency symbol  
-  - **Value**: OHLC price DataFrame
-- This structure was reused in all subsequent phases.
-
----
-
-## Phase 2: Hurst Exponent, Half-Life, and Visualization
-
-In Phase 2, stationary cryptocurrencies identified in Phase 1 were analyzed further.
-
-### Methods
-- **Hurst Exponent** was computed to measure long-term dependence:
-  - `H < 0.5`: mean-reverting behavior  
-  - `H > 0.5`: trending behavior
-- **Half-life of mean reversion** was estimated using an AR(1) framework.
-- Cryptocurrencies were sorted based on their half-life values.
-
-### Visualization
-- Candlestick charts were generated for stationary cryptocurrencies.
-- Charts were ordered from shortest to longest half-life to highlight faster mean-reverting assets.
+Steps:
+- Selected top 50 cryptocurrencies by market capitalization
+- Collected daily OHLC data
+- Applied ADF test on closing prices
+- Separated stationary and non-stationary cryptocurrencies
 
 ---
 
-## Phase 3: Cointegration of Non-Stationary Cryptocurrencies
+## Phase 2: Hurst Exponent, Half-Life Estimation, and Visualization
 
-Phase 3 focuses on identifying stationary linear combinations of **non-stationary** cryptocurrencies using the **Johansen cointegration test**.
+In Phase 2, the stationary cryptocurrencies were analyzed to evaluate their mean-reverting behavior.
 
-### Methodology
-- Stationary cryptocurrencies were excluded from this phase.
-- All **3-asset combinations** were generated using `itertools.combinations`.
-- Combinations were skipped if:
-  - Time series lengths were inconsistent
-  - Numerical issues occurred (e.g., singular matrices, NaNs)
-- The Johansen test was applied at the **95% confidence level**.
-- The strongest cointegrating vector was selected and normalized.
-- Cointegrated spreads were constructed as linear combinations of prices.
-- The **half-life of each spread** was calculated.
-- The **5 spreads with the shortest half-life** were selected.
+Steps:
+- Computed the Hurst exponent for stationary cryptocurrencies
+- Calculated the half-life of mean reversion
+- Stored OHLC data in a structured dictionary (`main_dict`)
+- Sorted assets by half-life
+- Visualized price movements using candlestick charts
 
-### Visualization
+---
+
+## Phase 3: Johansen Cointegration and Spread Construction
+
+In Phase 3, non-stationary cryptocurrencies were analyzed using multivariate cointegration techniques.
+
+Steps:
+- Generated all 3-asset combinations using `itertools.combinations`
+- Skipped combinations with insufficient data length or mismatched timestamps
+- Applied the Johansen cointegration test
+- Handled numerical issues such as singular matrices and invalid inputs
+- Extracted and normalized cointegrating vectors
+- Constructed cointegrated spreads
+- Computed half-life for each spread
+- Selected the top 5 spreads with the shortest half-life
+
+---
+
+## Phase 4: Mean-Reversion Trading Strategy Implementation and Backtesting
+
+In Phase 4, a complete mean-reversion trading strategy was implemented and backtested on the selected cointegrated spreads obtained in Phase 3.
+
+The strategy was applied to the **top 5 cointegrated spreads with the shortest half-life**, using daily data over the period **2024-12-01 to 2025-12-01**.
+
+---
+
+### 4.1 Spread Construction
+
 For each selected spread:
-- Each cryptocurrency price series was plotted separately for clarity.
-- The cointegration spread was plotted using a candlestick chart.
-- Plots were stacked vertically for clear visual interpretation.
+- Three cryptocurrencies were combined using the **Johansen cointegration vector (β)**.
+- A synthetic **spread OHLC series** was constructed as a linear combination of the individual asset OHLC prices:
+
+  - Spread Open  = β₁·Open₁ + β₂·Open₂ + β₃·Open₃  
+  - Spread High  = β₁·High₁ + β₂·High₂ + β₃·High₃  
+  - Spread Low   = β₁·Low₁  + β₂·Low₂  + β₃·Low₃  
+  - Spread Close = β₁·Close₁ + β₂·Close₂ + β₃·Close₃  
+
+Only timestamps common to all three assets were used to avoid missing data.
 
 ---
 
-## Future Work: Trading Strategy Implementation
+### 4.2 Lookback Window Selection
 
-The next step of this project is to **implement and evaluate a statistical arbitrage trading strategy** based on the cointegrated spreads identified in Phase 3.
+The lookback window was dynamically determined based on the half-life of each spread:
 
-Planned extensions include:
-- Defining **entry and exit rules** based on spread deviations (e.g., z-score thresholds).
-- Using **half-life** to set optimal holding periods.
-- Position sizing based on cointegration weights.
-- Backtesting the strategy with realistic assumptions (transaction costs, slippage).
-- Evaluating performance using metrics such as Sharpe ratio, drawdown, and win rate.
+- Lookback = 2 × Half-Life
+- If (2 × Half-Life) < 30 days, the lookback was increased to the **smallest integer multiple of Half-Life ≥ 30**
+
+This ensures statistical stability of the indicators while respecting the mean-reversion speed of each spread.
 
 ---
+
+### 4.3 Indicator Calculation
+
+Based on the latest amendment of the project specification:
+
+- **EMA (Exponential Moving Average)** was calculated on the **spread close price**
+- **Standard Deviation (STD)** was also calculated on the **spread close price**
+
+Indicators:
+- EMA = EMA(spread_close, lookback)
+- STD = rolling_std(spread_close, lookback)
+
+These indicators form the dynamic trading bands used for entry and exit signals.
+
+---
+
+### 4.4 Trading Rules
+
+#### Entry Rules
+
+**Short Positions**
+- When spread **high > EMA + 1·STD**, enter a short position with **50% of capital**
+- When spread **high > EMA + 2·STD**, add the remaining **50% of capital**
+
+**Long Positions**
+- When spread **low < EMA − 1·STD**, enter a long position with **50% of capital**
+- When spread **low < EMA − 2·STD**, add the remaining **50% of capital**
+
+Only one directional position (long or short) can be open at a time.
+
+---
+
+#### Exit Rules
+
+- **Exit Short Position** when spread close price ≤ EMA
+- **Exit Long Position** when spread close price ≥ EMA
+
+Upon exit, the entire position is closed.
+
+---
+
+### 4.5 Position Management
+
+- Progressive position sizing: 0 → 50% → 100%
+- No leverage is assumed
+- No transaction costs are applied at this stage
+- Trades are evaluated on candle close prices
+
+---
+
+### 4.6 Backtesting Output
+
+For each spread, the backtest logs:
+- Entry and exit timestamps
+- Trade type (FirstLong, SecondLong, FirstShort, SecondShort, Exit)
+- Position size
+- Trade sequence ID per spread
+
+Trades are printed in chronological order and grouped by spread for clarity.
+
+---
+
+### 4.7 Key Assumptions and Limitations
+
+- Perfect liquidity and execution at candle close prices
+- No slippage or transaction fees
+- Daily frequency only
+- Strategy tested on a fixed historical window (1 year)
+
+These assumptions will be relaxed in future phases.
+
+
+---
+
+## Future Work: Performance Evaluation and Visualization
+
+The next step is to evaluate the performance of the implemented strategy.
+
+Planned tasks:
+- Compute **Sharpe Ratio** for each spread and for the overall strategy
+- Calculate **Maximum Drawdown (Max-Drawdown)**
+- Build and plot the **Equity Curve** to visualize strategy performance
+- Report cumulative and periodic **returns**
+- Compare performance across the 5 selected mean-reverting spreads
+
+These metrics will provide a comprehensive assessment of the strategy’s risk-adjusted performance.
